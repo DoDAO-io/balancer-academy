@@ -1,0 +1,272 @@
+{
+  "categories": [
+    "engineering"
+  ],
+  "content": "What are Composable Stable Pool and why do we need them?",
+  "created": "2023-01-02T19:24:09.209Z",
+  "guideIntegrations": {
+    "discordRoleIds": []
+  },
+  "guideType": "onboarding",
+  "key": "composable-stable-pools-balancer",
+  "name": "Composable Stable Pools",
+  "publishStatus": "Live",
+  "showIncorrectOnCompletion": true,
+  "steps": [
+    {
+      "content": "\nThe DeFi ecosystem is full of correlated assets. We see many different tokens based on ETH, for example: wstETH, wETH, aETH, cETH, \nor BTC eg: renBTC, sBTC, WBTC, aWBTC, cWBTC.\n\nIf we try to lend or stake our assets on many of the DeFi Protocols, we get a correlated asset in return.\n\nThere are multiple ways to manage risk when investing an asset. One approach is to spread your investments across multiple \nplatforms. This can be complex, and you need to understand the workflow of each platform. Another, easier way is to swap \nyour token for different ones that are based on the same core asset. This prevents complexity and extra gas fees, but \nstill ensures diversification and returns on your investments.\n\nBeing able to swap large quantities of correlated assets quickly and with minimal price slippage is a big advantage for both \ninstitutional investors and retail users in DeFi. For liquidity providers, in this case, impermanent loss is not as big of a \nconcern (except in rare cases where the depeg's happen).        ",
+      "name": "Background",
+      "stepItems": [],
+      "uuid": "1f9b285b-0f3d-4e02-a6d8-51ebdab5bc09"
+    },
+    {
+      "content": "## Stable Math\nPools that use a constant product invariant (x*y=k) might not be the best option as there can be a lot of slippage, which \nis quite undesirable in the scenario of correlated assets. Constant sum invariant (x+y=k) seems to be more relevant but \ncan end the pool having just single type of tokens.\n\nStable Math's Invariant solves both of these problems and can keep prices more equal as long as the liquidity pool is \nnot extremely unbalanced\n\n<div align=\"center\">\n<img width=\"560\" height=\"315\" src=\"https://github.com/balancer-labs/docs-v2/raw/fc4f11145504bf9bc2dbed3ac30b6ffbe704d0aa/.gitbook/assets/output%20(1).gif\" />\n</div>\n<br/>\n<br/>\nStableSwap approaches Constant Product as A->0 and Constant Sum as A->∞\n\n<br/>\n<br/>\n\n$$\n\nA \\cdot n^n \\cdot \\sum{x_i} +D = A \\cdot D \\cdot n^n + { \\frac{D^{n+1}}{{n}^{n}\\cdot \\prod{x_i} } }\n\n$$\n\n\n<br/>\n\n Where:\n \n * $$ n $$ is the number of tokens \n * $$ x_i $$  is balance of token  $$ i $$ \n * $$ A $$ is the amplification parameter \n\nMore detail about stable math can be found [here](https://docs.balancer.fi/concepts/math/stable-math)\n\n## Amplification Parameter\nThe A-Factor, also known as the amplification parameter, plays a major role in how flattened the curve will be. This \nparameter controls how much slippage occurs, with higher values resulting in less slippage.\n\nIf the A-Factor is set to zero, the curve will follow a similar path to x*y=k, but with increased slippage. The \nillustration below shows the stable swap invariant with the A-Factor set to zero. Notice the green line:\n\nThe higher the A-Factor is set, the more flattened the curve becomes.\n\nWe can pass `amplificationParameter` to the constructor when creating instance of ComposableStablePool.\n\nComposableStablePool(`StablePoolAmplification.sol`) uses timestamps to slowly update its Amplification parameter over time. These changes must occur over a minimum time period much larger than the blocktime, making timestamp manipulation a non-issue. Amplification factor changes must happen over a minimum period of one day, and can at most divide or multiply the current value by 2 every day.\n\nYou can call the `_getAmplificationParameter` which also returns a boolean to indicate whether there is an ongoing update\n\n```solidity\nfunction _getAmplificationParameter() internal view returns (uint256 value, bool isUpdating)\n```",
+      "name": "Stable Math",
+      "stepItems": [],
+      "uuid": "0943077a-74a0-4317-a3db-fbbb0c2350ce"
+    },
+    {
+      "content": "",
+      "name": "Evaluation",
+      "stepItems": [
+        {
+          "answerKeys": [
+            "0c66f840"
+          ],
+          "choices": [
+            {
+              "content": "Constant Product",
+              "key": "075e30b2"
+            },
+            {
+              "content": "Constant Sum",
+              "key": "0c66f840"
+            },
+            {
+              "content": "Constant Mean",
+              "key": "5213dee4"
+            },
+            {
+              "content": "Constant Mode",
+              "key": "ed20e9c4"
+            }
+          ],
+          "content": "When Amplification Parameter approaches infinity (A->∞) what type of invariant does the pool uses?",
+          "type": "SingleChoice",
+          "uuid": "0dff0f3b-da4e-4b55-b835-037dac8326d1"
+        },
+        {
+          "answerKeys": [
+            "13528715"
+          ],
+          "choices": [
+            {
+              "content": "Constant Product",
+              "key": "13528715"
+            },
+            {
+              "content": "Constant Sum",
+              "key": "8649a72b"
+            },
+            {
+              "content": "Constant Mean",
+              "key": "f56b614e"
+            },
+            {
+              "content": "Constant Mode",
+              "key": "bf2c338b"
+            }
+          ],
+          "content": "When Amplification Parameter approaches zero (A-> 0) what type of invariant does the pool uses?",
+          "type": "SingleChoice",
+          "uuid": "274c9c76-96f0-49a0-a3c2-f5e5e9edda0f"
+        }
+      ],
+      "uuid": "2bb8e124-e44b-43dc-a1c6-eb42688a1a27"
+    },
+    {
+      "content": "# ComposableStablePool\n`ComposableStablePool` This is a 5-token stable pool that also contains its own BPT. It also is a type of Balancer Pool that extends from `BasePool`, that uses the authenticate modifier to protect its functions with advanced authorization mechanisms.\n\nSome of the benefits that every pool gets when it inherits from BasePool are:\n1. Emergency Pause - The BasePool inherits from the `TemporarilyPausable` contract, which provides an emergency pause feature within the first 30 days of factory deployment.\n2. Swap Fee management - A simple but important feature is management of the swap fee percentage.\n3. Vault Integration - The Vault is the central point for all pool tokens and related bookkeeping. It is the primary point of interaction for joining, exiting, or swapping pools, and delegates to the appropriate pools as needed.\n\n## Pool Initialization\n`ComposableStablePool` uses the initialization step of Balancer Pools to mint Balancer Pool Tokens(BPT) to the first account that joins them. By minting the entire BPT supply for the initial joiner and then pulling all tokens except those due to the joiner, ComposableStablePool arrives at the desired state of the Pool holding all BPT except the joiner's.\n\n## Balancer Pool Token (BPT)\nBPT is preminted and registered as one of the tokens in the pool during initialization. This allows for token swaps to be made that look like either a single-token join or exit. ComposableStablePool also support regular joins and exits, which can create or destroy BPT.\n\nThe preminted BPT is deposited into the Vault as the initial balance of the Pool. Until it is transferred out of the Pool, it does not belong to any entity. The Pool's arithmetic acts as if BPT doesn't exist. Therefore, the total supply of BPT is not a useful value. ComposableStablePool relies on the 'virtual supply' (how much BPT is actually owned outside the Vault) instead.",
+      "name": "Composable Stable Pool",
+      "stepItems": [],
+      "uuid": "892b3f61-cfe8-4aab-89c1-ea5004425e4e"
+    },
+    {
+      "content": "",
+      "name": "Evaluation",
+      "stepItems": [
+        {
+          "answerKeys": [
+            "e58fc9ac"
+          ],
+          "choices": [
+            {
+              "content": "2",
+              "key": "35f26766"
+            },
+            {
+              "content": "3",
+              "key": "9ac9160b"
+            },
+            {
+              "content": "4",
+              "key": "6e8e0a7b"
+            },
+            {
+              "content": "5",
+              "key": "e58fc9ac"
+            }
+          ],
+          "content": "What is the max number of tokens that we use in ComposableStablePool?",
+          "type": "SingleChoice",
+          "uuid": "7f6d11cd-2826-4053-bd60-97a3597d9167"
+        },
+        {
+          "answerKeys": [
+            "f714279b"
+          ],
+          "choices": [
+            {
+              "content": "Same ComposableStablePool",
+              "key": "f714279b"
+            },
+            {
+              "content": "New and separate ComposableStablePool",
+              "key": "76f041af"
+            },
+            {
+              "content": "Liquidity Bootstrapping Pool",
+              "key": "b2b14a8f"
+            },
+            {
+              "content": "Boosted Pool",
+              "key": "a1965e13"
+            }
+          ],
+          "content": "When using ComposableStablePool, the BPT that is minted is part of which pool",
+          "type": "SingleChoice",
+          "uuid": "6cb0e2c3-d31e-44cf-8a16-f2e3749e4524"
+        }
+      ],
+      "uuid": "23529d6f-2fe1-4469-b315-70fe76d7bae4"
+    },
+    {
+      "content": "\n## RateProvider\nComposableStablePool's most elegant feature is its ability to provide a custom Rate Provider for each token.\n\nConstructor of ComposableStablePool takes the following struct as params\n\n```solidity\n    struct NewPoolParams {\n        IVault vault;\n        IProtocolFeePercentagesProvider protocolFeeProvider;\n        string name;\n        string symbol;\n        IERC20[] tokens;\n        IRateProvider[] rateProviders;\n        uint256[] tokenRateCacheDurations;\n        bool[] exemptFromYieldProtocolFeeFlags;\n        uint256 amplificationParameter;\n        uint256 swapFeePercentage;\n        uint256 pauseWindowDuration;\n        uint256 bufferPeriodDuration;\n        address owner;\n    }\n```\nWe can pass a custom rate provider to the constructor for each token. The rate conversion logic is also handled very well when scaling the tokens. Here we can see the `ComposableStablePoolRates.sol` to see how rate provider is actually used.\n\n```solidity\n    /**\n     * @dev Overrides scaling factor getter to compute the tokens' rates.\n     */\n    function _scalingFactors() internal view virtual override returns (uint256[] memory) {\n        // There is no need to check the arrays length since both are based on `_getTotalTokens`\n        uint256 totalTokens = _getTotalTokens();\n        uint256[] memory scalingFactors = new uint256[](totalTokens);\n\n        for (uint256 i = 0; i < totalTokens; ++i) {\n            scalingFactors[i] = _getScalingFactor(i).mulDown(_getTokenRate(i));\n        }\n\n        return scalingFactors;\n    }\n```\n\nThe logic to ensure that tokens are properly scaled when calculating the swapped tokens is already part of BasePool. ComposableStablePool(`ComposableStablePoolRates.sol`) extends it and considers the rate provider also.\n\n## Caching\n Token rate caches are used to avoid querying the price rate for a token every time we need to work with it. The `old rate` field is used for precise protocol fee calculation, to ensure that token yield is only \"taxed\" once. \n\nConstructor of ComposableStablePool also accepts `uint256[] tokenRateCacheDurations;` which determines the duration for which the rates should be cached.\n",
+      "name": "Rate Provides",
+      "stepItems": [],
+      "uuid": "23176d4a-3737-45b3-bd5d-735cb7c5338b"
+    },
+    {
+      "content": "",
+      "name": "Evaluation",
+      "stepItems": [
+        {
+          "answerKeys": [
+            "6d8549f1"
+          ],
+          "choices": [
+            {
+              "content": "The determine by how much decimals do we need to scale the tokens",
+              "key": "90502a5a"
+            },
+            {
+              "content": "The determine and apply the token rate when swapping",
+              "key": "6d8549f1"
+            },
+            {
+              "content": "To normalize all the token prices to same value",
+              "key": "6499a52f"
+            },
+            {
+              "content": "To enhance the security of the pool",
+              "key": "fa29c7e6"
+            }
+          ],
+          "content": "What is the role of Rate Providers?",
+          "type": "SingleChoice",
+          "uuid": "33e126fd-ab42-43d7-b74f-a9a1e1366aec"
+        },
+        {
+          "answerKeys": [
+            "04d89a5d"
+          ],
+          "choices": [
+            {
+              "content": "Two rate providers are allowed per pool",
+              "key": "15ff4fd7"
+            },
+            {
+              "content": "There is no limit",
+              "key": "f4f93079"
+            },
+            {
+              "content": "Only one rate provider is allowed per pool",
+              "key": "8d3a3c29"
+            },
+            {
+              "content": "Same as the number of tokens used in the pool",
+              "key": "04d89a5d"
+            }
+          ],
+          "content": "How many rate providers can we pass to ComposableStablePool?",
+          "type": "SingleChoice",
+          "uuid": "11fcf92c-8261-461e-95cc-f81d41fd5d25"
+        }
+      ],
+      "uuid": "2aeb9912-445e-4b4c-b4e4-b74f1ce214c1"
+    },
+    {
+      "content": "You can easily extend Balancer's Composable Stable Pool by installing the package containing `ComposableStablePool.sol`.\n\n```shell\nnpm i @balancer-labs/v2-pool-stable\n``` \n\nHere are the first few lines of `ComposableStablePool.sol` and it explains how the code is structured.\n```solidity\ncontract ComposableStablePool is\n    IRateProvider,\n    BaseGeneralPool,\n    StablePoolAmplification,\n    ComposableStablePoolRates,\n    ComposableStablePoolProtocolFees\n{\n    using FixedPoint for uint256;\n    using PriceRateCache for bytes32;\n    using StablePoolUserData for bytes;\n    using BasePoolUserData for bytes;\n\n    // The maximum imposed by the Vault, which stores balances in a packed format, is 2**(112) - 1.\n    // We are preminting half of that value (rounded up).\n    uint256 private constant _PREMINTED_TOKEN_BALANCE = 2**(111);\n\n    // The constructor arguments are received in a struct to work around stack-too-deep issues\n    struct NewPoolParams {\n        IVault vault;\n        IProtocolFeePercentagesProvider protocolFeeProvider;\n        string name;\n        string symbol;\n        IERC20[] tokens;\n        IRateProvider[] rateProviders;\n        uint256[] tokenRateCacheDurations;\n        bool[] exemptFromYieldProtocolFeeFlags;\n        uint256 amplificationParameter;\n        uint256 swapFeePercentage;\n        uint256 pauseWindowDuration;\n        uint256 bufferPeriodDuration;\n        address owner;\n    }\n\n    constructor(NewPoolParams memory params)\n        BasePool(\n            params.vault,\n            IVault.PoolSpecialization.GENERAL,\n            params.name,\n            params.symbol,\n            _insertSorted(params.tokens, IERC20(this)),\n            new address[](params.tokens.length + 1),\n            params.swapFeePercentage,\n            params.pauseWindowDuration,\n            params.bufferPeriodDuration,\n            params.owner\n        )\n        StablePoolAmplification(params.amplificationParameter)\n        ComposableStablePoolStorage(_extractStorageParams(params))\n        ComposableStablePoolRates(_extractRatesParams(params))\n        ProtocolFeeCache(\n            params.protocolFeeProvider,\n            ProviderFeeIDs({ swap: ProtocolFeeType.SWAP, yield: ProtocolFeeType.YIELD, aum: ProtocolFeeType.AUM })\n        )\n    {\n        // solhint-disable-previous-line no-empty-blocks\n    }\n\n``` \n\nAs you can see, the functionality of stable pools is divided into smaller contracts, each performing a single responsibility. This division of code helps to ensure that the code is easy to understand and extend. ComposableStablePool extends from \n1. `BaseGeneralPool` - provides some generic functionality related to security, swapping, vault integration etc. \n2. `StablePoolAmplification` - responsible for updating of Amplification Parameter with time\n3. `ComposableStablePoolRates` - builds a cache of the rate provides and then using these rates to calculate the number of output or input tokens for swap.\n4. `ComposableStablePoolProtocolFees` - calculates the protocol fees during joins and exits",
+      "name": "Extend  Composable Stable Pools",
+      "stepItems": [],
+      "uuid": "6f649721-5e7e-4137-b4c7-c997fee374fc"
+    },
+    {
+      "content": "There are a few ways to deploy pools. Balancer provides two very easy ways to deploy new pools.\n### 1. Using Factory (Typescript/Javascript)\nLike other pools, ComposableStablePool has a factory from which users can deploy new pools. To deploy a pool, you must call that factory's create() function with the following arguments \n```javascript\n  create(\n    name: PromiseOrValue<string>,\n    symbol: PromiseOrValue<string>,\n    tokens: PromiseOrValue<string>[],\n    amplificationParameter: PromiseOrValue<BigNumberish>,\n    rateProviders: PromiseOrValue<string>[],\n    tokenRateCacheDurations: PromiseOrValue<BigNumberish>[],\n    exemptFromYieldProtocolFeeFlags: PromiseOrValue<boolean>[],\n    swapFeePercentage: PromiseOrValue<BigNumberish>,\n    owner: PromiseOrValue<string>,\n    overrides?: Overrides & { from?: PromiseOrValue<string> }\n  ): Promise<ContractTransaction>;\n\n```\nUsing hardhat's ethers library you can easily create the pool by passing all the required parameters to the ComposableStablePoolFactory's create function   \n```javascript\nconst ComposableStablePoolFactoryAddress = '0x.......';\nconst factory = await ethers.getContractAt(\n          'ComposableStablePoolFactory',\n          ComposableStablePoolFactoryAddress\n      );\n\n// function for your corresponding pool in that pool factory's ABI\nconst tx = await factory.create(\n      NAME, SYMBOL, tokens, \n      amplificationParameter, rateProviders, tokenRateCacheDurations, exemptFromYieldProtocolFeeFlags,\n      swapFeePercentage, owner\n);\nconst receipt = await tx.wait();\n\n// We need to get the new pool address out of the PoolCreated event\nconst events = receipt.events.filter((e) => e.event === 'PoolCreated');\nconst poolAddress = events[0].args.pool;\n\n// We're going to need the PoolId later, so ask the contract for it\nconst pool = await ethers.getContractAt('ComposableStablePool', poolAddress);\nconst poolId = await pool.getPoolId();\n```\n## 2. Using [BalPy](https://pypi.org/project/balpy/) \nSteps \n\n1. Make a virtual environment\n   ```shell\n    python3 -m venv ./venv\n    source ./venv/bin/activate\n   ```\n2. Install balpy\n  ```shell\n    python3 -m pip install balpy\n  ```\n3. Source your environment (balpy will warn you if you forget this step) \n4. Copy a pool config for the poolType you want to create. You can find sample file for ComposableStablePool [here](https://github.com/balancer-labs/balpy/blob/main/samples/poolCreation/sampleComposableStablePool.json)\n  ```shell\n    cp sampleComposableStablePool.json mySampleComposableStablePool.json\n  ```\n5. Edit your new pool file in your favorite text editor and run the Python script\n  ```shell\n    python3 poolCreationSample.py mySampleComposableStablePool.json\n  ```\n",
+      "name": "Create and Deploy",
+      "stepItems": [],
+      "uuid": "00b73e0b-0a58-42c5-af36-6a0973367128"
+    },
+    {
+      "content": "",
+      "name": "Evaluation",
+      "stepItems": [
+        {
+          "answerKeys": [
+            "64f28d68",
+            "5a96396a"
+          ],
+          "choices": [
+            {
+              "content": "Using PoolFactory(Typescript/Javascript)",
+              "key": "64f28d68"
+            },
+            {
+              "content": "Using balancer's clojure library",
+              "key": "a8cba3b1"
+            },
+            {
+              "content": "Using BalPy",
+              "key": "5a96396a"
+            },
+            {
+              "content": "Using Kubernetes",
+              "key": "e5220434"
+            }
+          ],
+          "content": "Select two convenient ways which Balancer provides for deploying Balancer Pools",
+          "type": "MultipleChoice",
+          "uuid": "5cdecd20-9213-4ad8-89cf-b66466e4a309"
+        }
+      ],
+      "uuid": "ffebd379-8156-4977-a806-85945213fc09"
+    },
+    {
+      "content": "Access Control Management in ComposableStablePool works in the exact same way as other pools. `ComposableStablePool` extends from `BasePool` which further extends from `BasePoolAuthorization`. \n\n`BasePool` delegates Access Control Management to Vault's Authorizer. This can be seen from the below code\n\n```solidity\n  function _getAuthorizer() internal view override returns (IAuthorizer) {\n      // Access control management is delegated to the Vault's Authorizer. This lets Balancer Governance manage which\n      // accounts can call permissioned functions: for example, to perform emergency pauses.\n      // If the owner is delegated, then *all* permissioned functions, including `setSwapFeePercentage`, will be under\n      // Governance control.\n      return getVault().getAuthorizer();\n  }\n```\n\nMost of the methods that modify ComposableStablePool's behaviour are protected using the same authentication mechanism as used in other pool. Below are some of the signatures of ComposableStablePool related functions that modify the behaviour and are protected using the `authenticate` modifier.\n\n```solidity\n\n  // ComposableStablePoolRates.sol\n\n  function setTokenRateCacheDuration(IERC20 token, uint256 duration)\n  external authenticate\n\n\n  // StablePoolAmplification.sol\n\n  function startAmplificationParameterUpdate(uint256 rawEndValue, uint256\n  endTime) external authenticate\n\n\n  function stopAmplificationParameterUpdate() external authenticate\n\n```\n\n`authenticate` modifier is declared in `Authentication.sol`\n\n```solidity\n\n  /**\n   * @dev Reverts unless the caller is allowed to call this function. Should only be applied to external functions.\n   */\n  modifier authenticate() {\n      _authenticateCaller();\n      _;\n  }\n\n```\n",
+      "name": "Permissions",
+      "stepItems": [],
+      "uuid": "23d615d0-17ca-4775-b50d-f70d04f17399"
+    }
+  ],
+  "thumbnail": "https://d31h13bdjwgzxs.cloudfront.net/academy/balancer/balancer_stable_coins.png",
+  "uuid": "composable-stable-pools-balancer"
+}

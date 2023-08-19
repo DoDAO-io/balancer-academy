@@ -1,1 +1,5 @@
-guides: []
+guides:
+  - balancer-grants-program.yaml
+  - intro-to-balancer-amm-balancer.yaml
+  - fees-and-rewards-balancer.yaml
+  - composable-stable-pools-balancer.yaml
